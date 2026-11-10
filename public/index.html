@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Map</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <span class="conn" id="conn" title="서버 연결"></span>
+    <a class="home" href="/" title="세션 목록">Code Map</a>
+    <select class="pick" id="pick" aria-label="세션 전환" hidden></select>
+  </div>
+  <div class="turn" id="turn" title="">
+    <span class="turn-tag" id="turnTag">대기</span>
+    <span class="turn-text" id="turnText">변경을 기다리는 중</span>
+  </div>
+  <div class="counts" id="counts"></div>
+  <nav class="actions" id="actions">
+    <button id="demoBar" hidden title="예제 프로젝트에 결제 기능을 붙이는 과정을 재생해요">데모 실행</button>
+    <div class="seg" role="group" aria-label="관계선">
+      <button id="tDeps" class="on" aria-pressed="true" title="클래스 간 주입·상속 관계">의존</button>
+      <button id="tCalls" class="on" aria-pressed="true" title="메서드 간 호출 관계">호출</button>
+    </div>
+    <button id="follow" class="on" aria-pressed="true" title="바뀐 곳으로 화면이 따라가요">따라가기</button>
+    <button id="fit" title="전체가 보이게 맞춰요">맞춤</button>
+    <button id="replay" title="이번 요청의 변경을 처음부터 다시 재생해요">다시보기</button>
+    <button id="reset" title="지금 상태를 새 기준으로 삼아요">기준 초기화</button>
+    <button id="logToggle" class="log-toggle">타임라인</button>
+  </nav>
+</header>
+
+<main class="main" id="mapView">
+  <section class="viewport" id="viewport">
+    <div class="stage" id="stage">
+      <div id="lanes"></div>
+      <svg class="edges" id="edges" aria-hidden="true">
+        <defs>
+          <marker id="m-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk mk-same"/></marker>
+          <marker id="m-arrow-added" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk mk-added"/></marker>
+          <marker id="m-arrow-deleted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" class="mk mk-deleted"/></marker>
+          <marker id="m-tri" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11 z" class="mk-open mk-same"/></marker>
+          <marker id="m-tri-added" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11 z" class="mk-open mk-added"/></marker>
+          <marker id="m-tri-deleted" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11 z" class="mk-open mk-deleted"/></marker>
+          <marker id="m-call" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1.5 L9,5 L0,8.5 z" class="mk mk-call"/></marker>
+          <marker id="m-call-added" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1.5 L9,5 L0,8.5 z" class="mk mk-added"/></marker>
+          <marker id="m-call-deleted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1.5 L9,5 L0,8.5 z" class="mk mk-deleted"/></marker>
+          <marker id="m-dot" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5"><circle cx="4" cy="4" r="3" class="mk mk-call"/></marker>
+          <marker id="m-dot-added" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5"><circle cx="4" cy="4" r="3" class="mk mk-added"/></marker>
+          <marker id="m-dot-deleted" viewBox="0 0 8 8" refX="4" refY="4" markerWidth="5" markerHeight="5"><circle cx="4" cy="4" r="3" class="mk mk-deleted"/></marker>
+        </defs>
+        <g id="edgeLayer"></g>
+        <g id="callLayer"></g>
+      </svg>
+      <div id="cards"></div>
+    </div>
+
+    <div class="empty" id="empty">
+      <div class="empty-mark" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <p class="empty-title" id="emptyTitle">변경을 기다리는 중</p>
+      <p class="empty-sub" id="emptySub"></p>
+      <button class="primary" id="demo" hidden>데모 실행</button>
+    </div>
+
+    <ul class="legend" aria-label="범례">
+      <li><i class="lg lg-added"></i>추가</li>
+      <li><i class="lg lg-modified"></i>수정</li>
+      <li><i class="lg lg-deleted"></i>삭제</li>
+      <li><i class="lg lg-intent"></i>수정 중</li>
+      <li><i class="ln ln-call"></i>호출</li>
+      <li><i class="ln ln-inject"></i>주입·필드</li>
+      <li><i class="ln ln-impl"></i>구현</li>
+    </ul>
+    <div class="replay-banner" id="replayBanner" hidden>다시보기 중 <span id="replayStep"></span></div>
+  </section>
+
+  <aside class="timeline" id="timeline">
+    <div class="tl-head">
+      <p class="tl-label">이번 요청</p>
+      <p class="tl-prompt" id="tlPrompt">세션 시작</p>
+      <p class="tl-meta" id="tlMeta"></p>
+    </div>
+    <ol class="log" id="log"></ol>
+  </aside>
+</main>
+
+<main class="list-view" id="listView" hidden>
+  <div class="list-inner">
+    <h1>Claude 세션</h1>
+    <p class="list-sub">세션마다 그 세션이 고친 코드만 따로 그려요. 플러그인을 설치하면 Claude Code를 열 때 자동으로 여기에 나타나요.</p>
+    <ul class="sessions" id="sessions"></ul>
+    <p class="list-empty" id="listEmpty" hidden>아직 등록된 세션이 없어요. Claude Code에서 새 세션을 열거나, <code>node server.mjs --demo</code>로 데모를 띄워 보세요.</p>
+  </div>
+</main>
+
+<div class="diff" id="diff" hidden>
+  <div class="diff-box" role="dialog" aria-modal="true" aria-labelledby="diffTitle">
+    <header>
+      <div>
+        <strong id="diffTitle"></strong>
+        <span id="diffMeta"></span>
+      </div>
+      <button id="diffClose" aria-label="닫기">닫기</button>
+    </header>
+    <pre id="diffBody"></pre>
+  </div>
+</div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "ktae23",
+  "description": "Plugins by ktae23",
+  "owner": { "name": "ktae23", "url": "https://github.com/ktae23" },
+  "plugins": [
+    {
+      "name": "code-map",
+      "source": "./",
+      "description": "Live class & call diagram of what Claude changes in Java/Kotlin + Spring code, per session, in your browser"
+    }
+  ]
+}
