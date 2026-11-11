@@ -1,7 +1,7 @@
 {
   "name": "code-map",
   "displayName": "Code Map",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Live class & call diagram of what Claude changes in Java/Kotlin + Spring code, per session, in your browser",
   "author": { "name": "ktae23", "url": "https://github.com/ktae23" },
   "homepage": "https://github.com/ktae23/code-map",

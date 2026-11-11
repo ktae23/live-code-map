@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Code Map 서버. Claude 세션마다 고친 클래스·메서드·호출 관계를 브라우저에 실시간으로 그린다.
-//   node server.mjs --daemon          플러그인 훅이 자동으로 띄우는 모드(세션은 훅이 등록)
+//   node server.mjs --daemon          플러그인 훅이 띄우는 모드(사용자가 지도를 켠 세션만 등록)
 //   node server.mjs <프로젝트 경로>    훅 없이 폴더 하나를 지켜보는 모드
 //   node server.mjs --demo            예제 Spring 프로젝트로 데모
 import http from 'node:http';
@@ -39,13 +39,26 @@ function projectFor(root) {
   return p;
 }
 
-function addSession(id, root, meta) {
+function addSession(id, root, meta, prompt = '') {
   const p = projectFor(root);
   const s = new Session(id, p, meta);
   p.sessions.add(s);
   sessions.set(id, s);
-  s.startTurn('', 'start');
+  s.startTurn(prompt, prompt ? 'turn' : 'start');
   return s;
+}
+
+const sessionUrl = (s) => `http://127.0.0.1:${port}/s/${s.short}`;
+
+// 사용자가 지도를 켰다(질문에 "열기" 또는 /code-map). 지금 디스크 상태가 이 요청의 비교 기준이 된다.
+function openSession(b) {
+  lastActivity = Date.now();
+  let s = sessions.get(b.session_id);
+  if (!s) s = addSession(b.session_id, findRoot(b.cwd || process.cwd()), { title: b.session_title ?? '' }, String(b.prompt ?? '').slice(0, 400));
+  s.opened = true;
+  s.closed = false;
+  s.lastActive = Date.now();
+  return { url: sessionUrl(s) };
 }
 
 // 파일 변경을 어느 세션 몫으로 볼지: 방금 그 파일을 고친 세션 → 작업 중인 세션들
@@ -77,9 +90,11 @@ function onHook(h) {
   let s = sessions.get(id);
   const cwd = h.cwd || process.cwd();
   if (!s) {
-    if (h.hook_event_name === 'SessionEnd') return {};
+    // 지도를 켜지 않은 세션의 이벤트는 받지 않는다
+    if (!h.track || h.hook_event_name === 'SessionEnd') return {};
     s = addSession(id, findRoot(cwd), { title: h.session_title ?? '' });
   }
+  if (h.autoOpen) s.autoOpen = true;
   s.lastActive = Date.now();
   if (h.session_title) s.title = h.session_title;
   const p = s.project;
@@ -112,7 +127,12 @@ function onHook(h) {
       s.closed = true;
       break;
   }
-  return { url: `http://127.0.0.1:${port}/s/${s.short}` };
+  // "이 저장소는 항상 열기": 이 세션에서 코드가 처음 바뀌면 훅에게 브라우저를 열라고 알린다
+  if (s.autoOpen && !s.opened && s.changed) {
+    s.opened = true;
+    return { url: sessionUrl(s), open: true };
+  }
+  return { url: sessionUrl(s) };
 }
 
 function findSession(short) {
@@ -182,6 +202,10 @@ const server = http.createServer(async (req, res) => {
     clients.add(res);
     req.on('close', () => { s.listeners.delete(send); clients.delete(res); });
     return;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/open') {
+    const b = await readJson(req);
+    return b.session_id ? json(openSession(b)) : json({ error: 'no session' }, 400);
   }
   if (url.pathname.startsWith('/api/') && url.pathname !== '/api/hook') {
     const s = findSession(q('s'));
