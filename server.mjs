@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { Project, findRoot } from './lib/project.mjs';
 import { Session } from './lib/session.mjs';
 import { syncWorkspace, runScenario } from './demo/scenario.mjs';
+import { Store, dataDir } from './hooks/state.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = JSON.parse(fs.readFileSync(path.join(HERE, 'package.json'), 'utf8')).version;
@@ -25,6 +26,7 @@ const positional = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== 
 const projects = new Map(); // 루트 → Project
 const sessions = new Map(); // 세션 id → Session
 const claims = new Map(); // `${루트}:${rel}` → { sid, ts } — PostToolUse로 확인된 "누가 고친 파일"
+const muted = new Map(); // 사용자가 끈 세션 id → 끈 시각. 그 세션의 훅에 "꺼짐"을 알려 다시 켜지지 않게 한다.
 let lastActivity = Date.now();
 
 function projectFor(root) {
@@ -53,6 +55,7 @@ const sessionUrl = (s) => `http://127.0.0.1:${port}/s/${s.short}`;
 // 사용자가 지도를 켰다(질문에 "열기" 또는 /live-code-map). 지금 디스크 상태가 이 요청의 비교 기준이 된다.
 function openSession(b) {
   lastActivity = Date.now();
+  muted.delete(b.session_id);
   let s = sessions.get(b.session_id);
   if (!s) s = addSession(b.session_id, findRoot(b.cwd || process.cwd()), { title: b.session_title ?? '' }, String(b.prompt ?? '').slice(0, 400));
   s.opened = true;
@@ -61,14 +64,38 @@ function openSession(b) {
   return { url: sessionUrl(s) };
 }
 
-// 파일 변경을 어느 세션 몫으로 볼지: 방금 그 파일을 고친 세션 → 작업 중인 세션들
+// 사용자가 지도를 껐다(화면의 "끄기" 또는 /live-code-map off). 기록을 버리고, 이 세션의 훅에는 꺼졌다고 알린다.
+function closeSession(id) {
+  const s = findSession(id);
+  if (!s || s.manual) return false;
+  muted.set(s.id, Date.now());
+  for (const send of s.listeners) send({ closed: true });
+  s.listeners.clear();
+  sessions.delete(s.id);
+  const p = s.project;
+  p.sessions.delete(s);
+  if (!p.sessions.size) { p.close(); projects.delete(p.root); }
+  new Store(dataDir()).setSession(s.id, { mode: 'off', auto: null });
+  return true;
+}
+
+// 파일 변경을 어느 세션 몫으로 볼지: 방금 그 파일을 고친 세션 → 작업 중인 세션들.
+// 지도를 켜지 않은 세션(또는 끈 세션)이 고친 파일이면 아무 지도에도 넣지 않는다.
 function owners(p, rel) {
   const c = claims.get(`${p.root}:${rel}`);
-  if (c && Date.now() - c.ts < 5000 && sessions.has(c.sid)) return [sessions.get(c.sid)];
+  if (c && Date.now() - c.ts < 5000) return sessions.has(c.sid) ? [sessions.get(c.sid)] : [];
   return [...p.sessions].filter((s) => s.busy);
 }
 
-function onFiles(p, rels, only = null) {
+// 등록되지 않은 세션이 파일을 고칠 때도 "그 세션 것"이라고 표시해 둔다
+function claimForeign(h) {
+  if (!h.file_path || !/^(Pre|Post)ToolUse$/.test(h.hook_event_name ?? '')) return;
+  const p = projects.get(findRoot(path.dirname(path.resolve(h.cwd || '/', h.file_path))));
+  const rel = p?.relOf(h.file_path);
+  if (rel) claims.set(`${p.root}:${rel}`, { sid: h.session_id, ts: Date.now() });
+}
+
+function onFiles(p, rels, only = null, agent = null) {
   const deltas = rels.map((rel) => p.load(rel)).filter(Boolean);
   if (!deltas.length) return;
   p.rebuild();
@@ -79,7 +106,13 @@ function onFiles(p, rels, only = null) {
       bySession.get(s).push(d);
     }
   }
-  for (const [s, list] of bySession) s.applyBatch(list);
+  for (const [s, list] of bySession) s.applyBatch(list, agent);
+  // 이 변경을 받지 않은 세션은 기준에 흡수한다(그 세션 지도에 남의 변경이 섞이지 않게)
+  for (const s of p.sessions) {
+    const mine = new Set(bySession.get(s) ?? []);
+    const others = deltas.filter((d) => !mine.has(d));
+    if (others.length) s.absorb(others);
+  }
 }
 
 // ---- 훅 이벤트 ----
@@ -90,8 +123,15 @@ function onHook(h) {
   let s = sessions.get(id);
   const cwd = h.cwd || process.cwd();
   if (!s) {
-    // 지도를 켜지 않은 세션의 이벤트는 받지 않는다
-    if (!h.track || h.hook_event_name === 'SessionEnd') return {};
+    if (muted.has(id)) {
+      claimForeign(h);
+      return { off: true };
+    }
+    // 지도를 켜지 않은 세션의 이벤트는 받지 않는다(어느 파일을 고쳤는지만 기록)
+    if (!h.track || h.hook_event_name === 'SessionEnd') {
+      claimForeign(h);
+      return {};
+    }
     s = addSession(id, findRoot(cwd), { title: h.session_title ?? '' });
   }
   if (h.autoOpen) s.autoOpen = true;
@@ -116,7 +156,7 @@ function onHook(h) {
       // 도구가 고친 파일은 감시보다 먼저 바로 반영하고 이 세션 몫으로 표시한다
       if (rel) {
         claims.set(`${p.root}:${rel}`, { sid: id, ts: Date.now() });
-        onFiles(p, [rel], s);
+        onFiles(p, [rel], s, h.agent_type);
       }
       break;
     case 'Stop':
@@ -158,6 +198,7 @@ setInterval(() => {
   }
   for (const [root, p] of projects) if (!p.sessions.size) { p.close(); projects.delete(root); }
   for (const [k, c] of claims) if (now - c.ts > 60e3) claims.delete(k);
+  for (const [k, t] of muted) if (now - t > 24 * 3600e3) muted.delete(k);
   if (daemon && !sessions.size && !clients.size && now - lastActivity > 30 * 60e3) process.exit(0);
 }, 60e3).unref();
 
@@ -186,7 +227,18 @@ const server = http.createServer(async (req, res) => {
   const q = (k) => url.searchParams.get(k);
   const json = (obj, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 
-  if (req.method === 'GET' && url.pathname === '/api/ping') return json({ app: 'code-map', version: VERSION }); // 훅이 서버를 알아보는 표시(이름을 바꿔도 그대로 둔다)
+  if (req.method === 'GET' && url.pathname === '/api/ping') return json({ app: 'code-map', version: VERSION, pid: process.pid, daemon }); // app: 훅이 서버를 알아보는 표시(이름을 바꿔도 그대로 둔다)
+  // 새 버전 플러그인의 훅이 예전 버전 데몬을 내릴 때 쓴다. 직접 띄운 서버(데모·폴더 모드)는 내리지 않는다.
+  if (req.method === 'POST' && url.pathname === '/api/shutdown') {
+    if (!daemon) return json({ error: 'not a daemon' }, 409);
+    json({ ok: true });
+    setTimeout(() => process.exit(0), 50);
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/close') {
+    const b = await readJson(req);
+    return closeSession(b.session_id || q('s')) ? json({ ok: true }) : json({ error: 'no session' }, 404);
+  }
   if (req.method === 'GET' && url.pathname === '/api/sessions') {
     const cwd = q('cwd');
     const root = cwd ? findRoot(cwd) : null;

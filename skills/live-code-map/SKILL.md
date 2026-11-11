@@ -1,6 +1,6 @@
 ---
 name: live-code-map
-description: Open the Live Code Map for the current Claude Code session — a browser diagram of the classes, methods, properties and method calls Claude adds, modifies or deletes in Java/Kotlin (Spring) code. Use when the user asks to open or show the code map (코드맵 열어줘, 변경 다이어그램, 클래스 다이어그램 보여줘), or to reset the Live Code Map "always/never" choice for this repository (코드맵 다시 물어봐). Do not use it to answer the Code Map question the plugin asks; a hook handles that answer.
+description: Open the Live Code Map for the current Claude Code session — a browser diagram of the classes, methods, properties and method calls Claude adds, modifies or deletes in Java/Kotlin (Spring) code. Use when the user asks to open or show the code map (코드맵 열어줘, 변경 다이어그램, 클래스 다이어그램 보여줘), to turn it off for this session (코드맵 꺼줘), or to reset the Live Code Map "always/never" choice for this repository (코드맵 다시 물어봐). Do not use it to answer the Code Map question the plugin asks; a hook handles that answer.
 allowed-tools: Bash(node "${CLAUDE_PLUGIN_ROOT}/hooks/open.mjs" *)
 ---
 
@@ -13,6 +13,12 @@ node "${CLAUDE_PLUGIN_ROOT}/hooks/open.mjs" --session "${CLAUDE_SESSION_ID}" --d
 ```
 
 From now on, the Java/Kotlin code this session changes is drawn on the map; the current state of the files is the baseline. Give the user the URL the script prints.
+
+If the user wants to turn the map off for this session, or the arguments say `off`, run this instead (it stops recording, and Claude won't ask again in this session):
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/hooks/open.mjs" --session "${CLAUDE_SESSION_ID}" --data "${CLAUDE_PLUGIN_DATA}" off
+```
 
 If the user wants Live Code Map to ask again in this repository (they earlier chose "Always in this repo" or "Never in this repo"), or the arguments say `reset`, run this instead:
 

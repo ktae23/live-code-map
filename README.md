@@ -49,6 +49,7 @@ claude plugin install live-code-map@ktae23
 - 코드 작업인지는 Claude가 요청 내용을 보고 판단합니다. 질문·코드 리뷰·설명·git·문서·설정 작업에는 묻지 않습니다.
 - Gradle·Maven 빌드 파일(`build.gradle(.kts)`, `settings.gradle(.kts)`, `pom.xml`)이 없는 저장소에서는 아무것도 하지 않습니다.
 - 질문 없이 바로 켜려면 `/live-code-map`, 저장소에 저장한 "항상 열기/묻지 않기"를 되돌리려면 `/live-code-map reset`.
+- **끄기**: 지도 화면 오른쪽 위 **끄기** 버튼, 또는 `/live-code-map off`. 그 세션의 기록을 버리고 이후로는 묻지 않습니다. 다시 켜려면 `/live-code-map`.
 
 세션마다 주소가 따로 있고, 각 화면에는 **그 세션이 고친 코드만** 나옵니다. 같은 저장소에서 여러 세션을 동시에 돌려도 섞이지 않습니다. 켠 세션 목록은 `http://127.0.0.1:4747`에서 볼 수 있습니다.
 
@@ -84,6 +85,10 @@ Claude Code 훅 ──▶ 로컬 서버(127.0.0.1:4747) ──SSE──▶ 브�
 ```
 
 - 서버는 누군가 지도를 켤 때 훅이 백그라운드로 띄우고, 할 일이 없으면 스스로 종료합니다. 지도를 켜지 않은 세션의 이벤트는 받지 않습니다.
+- 서버는 컴퓨터에 하나(포트 4747)만 뜨고 모든 세션이 같이 씁니다. 세션은 서버 안에서 세션 id로 나뉘고, 각 세션 화면에는 그 세션이 고친 파일만 들어갑니다. 지도를 켜지 않은 세션이 같은 저장소에서 고친 파일도 "그 세션 것"으로 표시해 다른 세션 지도에 섞이지 않게 합니다.
+- 플러그인을 업데이트하면 더 새 버전의 훅이 예전 버전 데몬을 내리고 새로 띄웁니다. 켜 둔 세션은 다음 요청 때 다시 등록되고, 열려 있던 화면은 그때 자동으로 다시 이어집니다. 직접 띄운 서버(`--demo`, 폴더 모드)는 건드리지 않습니다.
+- 4747 포트를 다른 프로그램이 쓰고 있으면 지도를 켤 수 없다고 알려 줍니다. `CODE_MAP_PORT`로 다른 포트를 지정하세요.
+- **서브에이전트**: 서브에이전트가 고친 파일도 부른 세션의 지도에 그려지고, 타임라인에 서브에이전트 이름이 붙습니다. 여러 서브에이전트가 동시에 고쳐도 도구 호출마다 순서대로 반영됩니다. `isolation: worktree` 서브에이전트가 별도 작업 트리(`.claude/worktrees/`)에서 고친 내용은 메인 체크아웃에 합쳐질 때 반영되고, 작업 트리 안의 복사본은 지도에 넣지 않습니다.
 - 묻는 안내는 지도를 켜거나 끄기로 정할 때까지 Java/Kotlin 저장소의 요청마다 붙습니다(약 150토큰).
 - 파서는 직접 작성했습니다. 클래스·생성자·프로퍼티·필드·메서드·애너테이션·상속을 읽고, 메서드 본문에서는 호출만 뽑습니다. 호출 대상은 필드·생성자 파라미터·메서드 파라미터·지역 변수·반환 타입을 따라가 정적으로 추론합니다.
 
@@ -157,7 +162,7 @@ demo/               예제 Spring 프로젝트와 데모 시나리오
 /plugin install live-code-map@ktae23
 ```
 
-Ask Claude for a Java/Kotlin change and pick **Open** when it asks, or run `/live-code-map` (`/live-code-map reset` forgets the per-repo choice). `CODE_MAP_MODE=always` skips the question. Try it without Claude: `node server.mjs --demo`.
+Ask Claude for a Java/Kotlin change and pick **Open** when it asks, or run `/live-code-map`. Turn it off with the **Off** button on the page or `/live-code-map off`; `/live-code-map reset` forgets the per-repo choice. Subagent edits show up on the calling session's map, tagged with the subagent name. `CODE_MAP_MODE=always` skips the question. Try it without Claude: `node server.mjs --demo`.
 
 ## License
 

@@ -115,7 +115,7 @@ export function lastPrompt(transcriptPath) {
 
 // 이 세션의 지도를 켠다: 서버를 띄우고 세션을 등록한 뒤(지금 상태가 비교 기준) 브라우저로 연다
 export async function startTracking(store, { sessionId, cwd, prompt = '', open = true }) {
-  if (!(await ensureServer(true))) return null;
+  if (!(await ensureServer(true, { dataDir: store.dir }))) return null;
   const r = await post('/api/open', { session_id: sessionId, cwd, prompt });
   if (!r?.url) return null;
   store.setSession(sessionId, { mode: 'on' });

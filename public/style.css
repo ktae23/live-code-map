@@ -553,6 +553,16 @@ body.listing .turn, body.listing .counts, body.listing .actions { display: none;
 .ev.deleted .ev-dot { background: var(--del); }
 .ev.turn .ev-dot, .ev.reset .ev-dot, .ev.start .ev-dot { background: var(--intent); }
 .ev-text { overflow-wrap: anywhere; }
+.ev-agent {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font: 11px/18px var(--mono);
+}
+body.map-closed #stage, body.map-closed .legend { display: none; }
 .ev.turn .ev-text, .ev.end .ev-text { color: var(--dim); }
 .ev.end .ev-dot { background: var(--text); }
 @keyframes evIn { from { opacity: 0; transform: translateY(4px); } }

@@ -31,6 +31,7 @@ function hookBody(h, extra = {}) {
     prompt: h.prompt,
     session_title: h.session_title,
     file_path: h.tool_input?.file_path ?? h.tool_input?.notebook_path,
+    agent_type: h.agent_id ? h.agent_type : undefined, // 서브에이전트가 고친 경우
     ...extra,
   };
 }
@@ -38,7 +39,9 @@ function hookBody(h, extra = {}) {
 async function onPrompt(h, store) {
   const st = store.session(h.session_id);
   if (st.mode === 'on') {
-    if (await ensureServer(true)) await post('/api/hook', hookBody(h, { track: true, autoOpen: !!st.auto }));
+    if (!(await ensureServer(true))) return;
+    const r = await post('/api/hook', hookBody(h, { track: true, autoOpen: !!st.auto }));
+    if (r?.off) store.setSession(h.session_id, { mode: 'off', auto: null }); // 화면에서 끈 세션
     return;
   }
   if (st.mode === 'off' || OPEN_COMMAND.test(String(h.prompt ?? ''))) return;
@@ -83,5 +86,6 @@ async function forward(h, store) {
   // 켠 세션은 서버가 꺼져 있으면 파일을 고친 직후 다시 띄운다. 그 밖에는 떠 있을 때만 보낸다(/live-code-map으로 켠 경우).
   if (!(await ensureServer(on && h.hook_event_name === 'PostToolUse'))) return;
   const r = await post('/api/hook', hookBody(h, { track: on, autoOpen: on && !!st.auto }));
+  if (r?.off && on) store.setSession(h.session_id, { mode: 'off', auto: null }); // 화면에서 끈 세션
   if (r?.open && r.url) openUrl(r.url);
 }

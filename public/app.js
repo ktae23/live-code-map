@@ -378,7 +378,8 @@ function renderLog(p) {
     const li = document.createElement('li');
     li.className = `ev ${ev.kind}`;
     const text = ev.kind === 'turn' ? '요청 시작' : ev.kind === 'start' ? '세션 시작' : ev.label;
-    li.innerHTML = `<time>${fmtTime(ev.ts)}</time><span class="ev-dot"></span><span class="ev-text">${esc(text)}</span>`;
+    const agent = ev.agent ? `<span class="ev-agent" title="서브에이전트가 고쳤어요">${esc(ev.agent)}</span>` : '';
+    li.innerHTML = `<time>${fmtTime(ev.ts)}</time><span class="ev-dot"></span><span class="ev-text">${agent}${esc(text)}</span>`;
     if (ev.cls) {
       li.addEventListener('click', () => {
         focusOn(ev.cls);
@@ -555,6 +556,7 @@ $('#reset').addEventListener('click', () => post(api('/api/reset')));
 $('#demo').addEventListener('click', () => post('/api/demo'));
 $('#demoBar').addEventListener('click', () => post('/api/demo'));
 $('#replay').addEventListener('click', () => (replaying ? stopReplay() : startReplay()));
+$('#closeMap').addEventListener('click', () => post(api('/api/close')));
 $('#logToggle').addEventListener('click', () => $('#timeline').classList.toggle('open'));
 $('#diffClose').addEventListener('click', closeDiff);
 $('#diff').addEventListener('click', (e) => { if (e.target.id === 'diff') closeDiff(); });
@@ -599,6 +601,24 @@ async function renderList() {
 }
 
 // ---- 실시간 연결 ----
+function showNotice(title, sub) {
+  $('#emptyTitle').textContent = title;
+  $('#emptySub').innerHTML = sub;
+  $('#empty').hidden = false;
+}
+
+// 서버가 다시 뜨면(플러그인 업데이트 등) 이 세션이 다시 등록될 때까지 기다렸다가 이어 붙는다
+function waitForSession() {
+  const timer = setInterval(async () => {
+    const list = await loadSessions();
+    if (list?.some((s) => s.short === SID)) {
+      clearInterval(timer);
+      live = null;
+      connect();
+    }
+  }, 3000);
+}
+
 function connect() {
   const es = new EventSource(api('/events'));
   const conn = $('#conn');
@@ -609,13 +629,25 @@ function connect() {
     const list = await loadSessions();
     if (list && !list.some((s) => s.short === SID)) {
       es.close();
-      $('#emptyTitle').textContent = '세션을 찾을 수 없어요';
-      $('#emptySub').innerHTML = '세션이 끝났거나 서버가 다시 시작됐어요. <a href="/">세션 목록으로</a>';
-      $('#empty').hidden = false;
+      showNotice('세션을 기다리는 중', '서버가 다시 시작됐거나 세션이 끝났어요. Claude에게 다음 요청을 보내면 이어서 그려요. <a href="/">세션 목록</a>');
+      waitForSession();
     }
   };
   es.onmessage = (e) => {
     const p = JSON.parse(e.data);
+    if (p.closed) {
+      es.close();
+      conn.className = 'conn off';
+      conn.title = '꺼짐';
+      document.body.classList.add('map-closed');
+      $('#closeMap').hidden = true;
+      $('#turnTag').textContent = '꺼짐';
+      $('#turnTag').classList.remove('live');
+      showNotice('이 세션의 지도를 껐어요', '다시 켜려면 Claude Code에서 <code>/live-code-map</code>을 입력하세요. <a href="/">세션 목록</a>');
+      return;
+    }
+    document.body.classList.remove('map-closed');
+    $('#closeMap').hidden = !!p.session?.manual;
     const first = !live;
     live = p;
     renderLog(p);
