@@ -1,4 +1,4 @@
-// Code Map 화면: 서버가 보내는 세션별 변경 상태를 레이어별 클래스 카드, 의존 관계선, 메서드 호출선으로 그린다.
+// Live Code Map 화면: 서버가 보내는 세션별 변경 상태를 레이어별 클래스 카드, 의존 관계선, 메서드 호출선으로 그린다.
 const $ = (s) => document.querySelector(s);
 const COL_W = 312, GAP_X = 140, GAP_Y = 18, TOP = 48, PAD = 28;
 const FOLLOW_ZOOM = 0.8;
@@ -356,7 +356,7 @@ function setHeader(p) {
     c.modified && `<span class="cnt m" title="수정">~${c.modified}</span>`,
     c.deleted && `<span class="cnt d" title="삭제">−${c.deleted}</span>`,
   ].filter(Boolean).join('');
-  document.title = `${p.session.project} · Code Map`;
+  document.title = `${p.session.project} · Live Code Map`;
 }
 
 let logTurn = null;

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Code Map 서버. Claude 세션마다 고친 클래스·메서드·호출 관계를 브라우저에 실시간으로 그린다.
+// Live Code Map 서버. Claude 세션마다 고친 클래스·메서드·호출 관계를 브라우저에 실시간으로 그린다.
 //   node server.mjs --daemon          플러그인 훅이 띄우는 모드(사용자가 지도를 켠 세션만 등록)
 //   node server.mjs <프로젝트 경로>    훅 없이 폴더 하나를 지켜보는 모드
 //   node server.mjs --demo            예제 Spring 프로젝트로 데모
@@ -50,7 +50,7 @@ function addSession(id, root, meta, prompt = '') {
 
 const sessionUrl = (s) => `http://127.0.0.1:${port}/s/${s.short}`;
 
-// 사용자가 지도를 켰다(질문에 "열기" 또는 /code-map). 지금 디스크 상태가 이 요청의 비교 기준이 된다.
+// 사용자가 지도를 켰다(질문에 "열기" 또는 /live-code-map). 지금 디스크 상태가 이 요청의 비교 기준이 된다.
 function openSession(b) {
   lastActivity = Date.now();
   let s = sessions.get(b.session_id);
@@ -186,7 +186,7 @@ const server = http.createServer(async (req, res) => {
   const q = (k) => url.searchParams.get(k);
   const json = (obj, code = 200) => { res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 
-  if (req.method === 'GET' && url.pathname === '/api/ping') return json({ app: 'code-map', version: VERSION });
+  if (req.method === 'GET' && url.pathname === '/api/ping') return json({ app: 'code-map', version: VERSION }); // 훅이 서버를 알아보는 표시(이름을 바꿔도 그대로 둔다)
   if (req.method === 'GET' && url.pathname === '/api/sessions') {
     const cwd = q('cwd');
     const root = cwd ? findRoot(cwd) : null;
@@ -266,6 +266,6 @@ server.listen(port, '127.0.0.1', () => {
     addSession('local', root, { title: path.basename(root), manual: true });
     first = `${base}/s/local`;
   }
-  console.log(`Code Map ${VERSION}: ${first}`);
+  console.log(`Live Code Map ${VERSION}: ${first}`);
   if (flag('--open')) execFile(process.platform === 'darwin' ? 'open' : 'xdg-open', [first], () => {});
 });

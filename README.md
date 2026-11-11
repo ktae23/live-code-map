@@ -1,10 +1,10 @@
-# Code Map
+# Live Code Map
 
 Claude Code가 Java/Kotlin + Spring 코드를 고치는 동안, **어느 레이어의 어느 클래스에서 어떤 메서드·프로퍼티가 추가·수정·삭제되고 메서드 호출 관계가 어떻게 바뀌는지** 세션별로 브라우저에 실시간으로 그려 주는 Claude Code 플러그인입니다.
 
 > A Claude Code plugin that draws a live class & call diagram of what Claude is changing in your Java/Kotlin + Spring code — per session, in your browser. [English below](#english)
 
-![Code Map 데모](docs/demo.gif)
+![Live Code Map 데모](docs/demo.gif)
 
 [MP4로 보기](docs/demo.mp4) · 데모는 예제 주문 서비스에 "결제 기능 추가 + 레거시 결제 정리"를 하는 과정입니다.
 
@@ -13,11 +13,21 @@ Claude Code가 Java/Kotlin + Spring 코드를 고치는 동안, **어느 레이�
 Claude Code에서:
 
 ```text
-/plugin marketplace add ktae23/code-map
-/plugin install code-map@ktae23
+/plugin marketplace add ktae23/live-code-map
+/plugin install live-code-map@ktae23
 ```
 
-Claude Code 2.1.275 이상이면 한 줄로도 됩니다: `/plugin install code-map --marketplace ktae23/code-map`
+Claude Code 2.1.275 이상이면 한 줄로도 됩니다: `/plugin install live-code-map --marketplace ktae23/live-code-map`
+
+예전 이름 `code-map`(0.3 이하)으로 설치했다면 지우고 새로 설치합니다:
+
+```bash
+claude plugin uninstall code-map@ktae23
+claude plugin marketplace update ktae23
+claude plugin install live-code-map@ktae23
+```
+
+플러그인 디렉터리에 있는 다른 `code-map`(코드베이스 구조를 정적 HTML로 한 번 그려 주는 플러그인)과는 별개입니다.
 
 필요한 것은 **Node 20 이상**뿐입니다. `npm install`이 없고 외부 패키지도 쓰지 않습니다.
 
@@ -28,7 +38,7 @@ Claude Code 2.1.275 이상이면 한 줄로도 됩니다: `/plugin install code-
 ```text
 > 주문 취소 기능 추가해줘
 
-  Code Map  이 작업의 클래스·메서드 변경을 Code Map으로 실시간으로 볼까요?
+  Code Map  이 작업의 클래스·메서드 변경을 Live Code Map으로 실시간으로 볼까요?
   ❯ 1. 열기                  지금 브라우저로 열기
     2. 이번엔 안 열기         이 세션에서는 다시 묻지 않음
     3. 이 저장소는 항상 열기   다음부터 묻지 않고, 코드가 처음 바뀔 때 자동으로 열기
@@ -38,7 +48,7 @@ Claude Code 2.1.275 이상이면 한 줄로도 됩니다: `/plugin install code-
 - **열기**를 고르면 브라우저에 `http://127.0.0.1:4747/s/xxxxxxxx`가 열리고, 그 시점이 비교 기준이 됩니다.
 - 코드 작업인지는 Claude가 요청 내용을 보고 판단합니다. 질문·코드 리뷰·설명·git·문서·설정 작업에는 묻지 않습니다.
 - Gradle·Maven 빌드 파일(`build.gradle(.kts)`, `settings.gradle(.kts)`, `pom.xml`)이 없는 저장소에서는 아무것도 하지 않습니다.
-- 질문 없이 바로 켜려면 `/code-map`, 저장소에 저장한 "항상 열기/묻지 않기"를 되돌리려면 `/code-map reset`.
+- 질문 없이 바로 켜려면 `/live-code-map`, 저장소에 저장한 "항상 열기/묻지 않기"를 되돌리려면 `/live-code-map reset`.
 
 세션마다 주소가 따로 있고, 각 화면에는 **그 세션이 고친 코드만** 나옵니다. 같은 저장소에서 여러 세션을 동시에 돌려도 섞이지 않습니다. 켠 세션 목록은 `http://127.0.0.1:4747`에서 볼 수 있습니다.
 
@@ -92,15 +102,15 @@ Claude Code 훅 ──▶ 로컬 서버(127.0.0.1:4747) ──SSE──▶ 브�
 
 - 서버는 `127.0.0.1`에만 열리고 `Host`/`Origin` 헤더를 검사해 다른 사이트가 소스를 읽어 가지 못하게 막습니다.
 - 외부로 아무것도 보내지 않습니다. 텔레메트리도 없습니다. 프롬프트와 코드는 서버 메모리에만 있고 종료하면 사라집니다.
-- 디스크에 남기는 것은 선택뿐입니다: 세션별 켬/끔과 저장소별 "항상/묻지 않기"를 플러그인 데이터 폴더(`~/.claude/plugins/data/code-map-ktae23/`)에 저장하고, 일주일 지난 세션 기록은 지웁니다.
+- 디스크에 남기는 것은 선택뿐입니다: 세션별 켬/끔과 저장소별 "항상/묻지 않기"를 플러그인 데이터 폴더(`~/.claude/plugins/data/live-code-map-ktae23/`)에 저장하고, 일주일 지난 세션 기록은 지웁니다.
 - 외부 의존성이 없어 공급망 위험이 없고, 사내 PC에도 그대로 쓸 수 있습니다.
 
 ## 플러그인 없이 쓰기
 
 ```bash
-git clone https://github.com/ktae23/code-map
-node code-map/server.mjs /path/to/my-spring-project   # 이 폴더의 모든 변경을 그림
-node code-map/server.mjs --demo                         # 데모: http://127.0.0.1:4747/s/demo
+git clone https://github.com/ktae23/live-code-map
+node live-code-map/server.mjs /path/to/my-spring-project   # 이 폴더의 모든 변경을 그림
+node live-code-map/server.mjs --demo                         # 데모: http://127.0.0.1:4747/s/demo
 ```
 
 훅만 직접 걸고 싶다면 `hooks/settings.example.json`을 `~/.claude/settings.json`이나 프로젝트의 `.claude/settings.local.json`에 넣고 경로를 바꿉니다.
@@ -110,16 +120,16 @@ node code-map/server.mjs --demo                         # 데모: http://127.0.0
 - 정적 추론이라 잡지 못하는 호출이 있습니다: 람다의 `it`, 컬렉션 원소, 상속받은 Spring Data 메서드(`findById` 등), 리플렉션·프록시. 오버로드는 이름으로 연결합니다.
 - 컴파일러가 아니라 선언부 파서입니다. 괄호가 안 맞는 중간 저장 상태는 건너뛰고, 맞춰지면 반영합니다.
 - 같은 저장소에서 여러 세션이 동시에 작업할 때, 셸 명령으로 고친 파일은 지도를 켠 모든 작업 중 세션 화면에 보일 수 있습니다. Edit·Write 도구로 고친 파일은 정확히 그 세션에만 보입니다.
-- 묻기는 Claude의 AskUserQuestion 도구를 씁니다. `claude -p`처럼 질문할 수 없는 실행에서는 묻지 않으니 `/code-map`이나 `CODE_MAP_MODE=always`를 쓰세요.
-- Bash 샌드박스를 켜 두면 `/code-map`이 로컬 서버에 닿지 못할 수 있습니다. 질문에 답해서 여는 방식은 훅이 처리하므로 영향이 없습니다.
+- 묻기는 Claude의 AskUserQuestion 도구를 씁니다. `claude -p`처럼 질문할 수 없는 실행에서는 묻지 않으니 `/live-code-map`이나 `CODE_MAP_MODE=always`를 쓰세요.
+- Bash 샌드박스를 켜 두면 `/live-code-map`이 로컬 서버에 닿지 못할 수 있습니다. 질문에 답해서 여는 방식은 훅이 처리하므로 영향이 없습니다.
 - macOS에서 개발·검증했습니다. Linux는 Node 20 이상에서 동작해야 하고, Windows는 아직 확인하지 않았습니다.
 
 ## 파일 구성
 
 ```text
 .claude-plugin/     플러그인·마켓플레이스 매니페스트, 아이콘
-hooks/              hooks.json(훅 설정), notify.mjs(훅 → 서버), state.mjs(켬/끔 선택), open.mjs(/code-map)
-skills/code-map/    /code-map 스킬
+hooks/              hooks.json(훅 설정), notify.mjs(훅 → 서버), state.mjs(켬/끔 선택), open.mjs(/live-code-map)
+skills/live-code-map/  /live-code-map 스킬
 server.mjs          로컬 서버: 세션·프로젝트 관리, 파일 감시, SSE
 lib/parse.mjs       Java/Kotlin 선언부 + 호출 파서
 lib/model.mjs       레이어 분류, 의존·호출 그래프, 두 시점 비교
@@ -132,7 +142,7 @@ demo/               예제 Spring 프로젝트와 데모 시나리오
 
 ## English
 
-**Code Map** is a Claude Code plugin that shows, in a browser tab next to your terminal, a live diagram of what Claude is changing in Java/Kotlin + Spring code.
+**Live Code Map** is a Claude Code plugin that shows, in a browser tab next to your terminal, a live diagram of what Claude is changing in Java/Kotlin + Spring code.
 
 - Classes are laid out in Spring layers (Controller → Service → Repository → Domain → DTO).
 - Added / modified / deleted members are highlighted as they happen; the file Claude is about to edit pulses.
@@ -143,11 +153,11 @@ demo/               예제 Spring 프로젝트와 데모 시나리오
 - Zero dependencies, local only (127.0.0.1, Host/Origin checked), no telemetry. Requires Node 20+.
 
 ```text
-/plugin marketplace add ktae23/code-map
-/plugin install code-map@ktae23
+/plugin marketplace add ktae23/live-code-map
+/plugin install live-code-map@ktae23
 ```
 
-Ask Claude for a Java/Kotlin change and pick **Open** when it asks, or run `/code-map` (`/code-map reset` forgets the per-repo choice). `CODE_MAP_MODE=always` skips the question. Try it without Claude: `node server.mjs --demo`.
+Ask Claude for a Java/Kotlin change and pick **Open** when it asks, or run `/live-code-map` (`/live-code-map reset` forgets the per-repo choice). `CODE_MAP_MODE=always` skips the question. Try it without Claude: `node server.mjs --demo`.
 
 ## License
 

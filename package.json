@@ -1,10 +1,10 @@
 {
-  "name": "code-map",
-  "version": "0.3.0",
+  "name": "live-code-map",
+  "version": "0.4.0",
   "private": true,
   "description": "Java/Kotlin + Spring 코드 변경을 클래스 단위로 실시간 시각화",
   "type": "module",
-  "bin": { "code-map": "server.mjs" },
+  "bin": { "live-code-map": "server.mjs" },
   "scripts": {
     "start": "node server.mjs",
     "demo": "node server.mjs --demo"

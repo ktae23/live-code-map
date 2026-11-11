@@ -1,4 +1,4 @@
-// 훅과 /code-map 스킬이 같이 쓰는 상태와 동작.
+// 훅과 /live-code-map 스킬이 같이 쓰는 상태와 동작.
 //   세션별 선택: on(지도 켬) / off(이 세션은 묻지 않음) — 플러그인 데이터 폴더의 sessions/<id>.json
 //   저장소별 선택: always(묻지 않고 켬) / never(묻지 않음) — repos.json
 // 프롬프트나 코드는 디스크에 쓰지 않는다.
@@ -14,7 +14,7 @@ export const MODE = process.env.CODE_MAP_DISABLE === '1' ? 'off' : (process.env.
 const usable = (v) => (v && !v.includes('${') ? v : undefined);
 
 export function dataDir(explicit) {
-  return usable(explicit) ?? usable(process.env.CLAUDE_PLUGIN_DATA) ?? path.join(os.homedir(), '.claude', 'code-map');
+  return usable(explicit) ?? usable(process.env.CLAUDE_PLUGIN_DATA) ?? path.join(os.homedir(), '.claude', 'live-code-map');
 }
 
 function readJson(file, fallback) {
@@ -125,8 +125,8 @@ export async function startTracking(store, { sessionId, cwd, prompt = '', open =
 
 // UserPromptSubmit에서 Claude 컨텍스트에 붙이는 안내. 코드 작업인지는 Claude가 요청 내용을 보고 판단한다.
 export const ASK_NOTE = [
-  'Code Map plugin: only if this request will make you add, change or delete Java/Kotlin source code,',
-  'ask the user once, before your first file edit, with the AskUserQuestion tool whether to open Code Map',
+  'Live Code Map plugin: only if this request will make you add, change or delete Java/Kotlin source code,',
+  'ask the user once, before your first file edit, with the AskUserQuestion tool whether to open Live Code Map',
   '(a live browser diagram of the classes, methods and calls you change in this session).',
   'Use the header "Code Map", a one-line question in the user\'s language, and these four options in this order',
   '(translate the labels): "Open" (show the live map now), "Not now" (don\'t ask again in this session),',
