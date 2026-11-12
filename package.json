@@ -1,6 +1,6 @@
 {
   "name": "live-code-map",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Java/Kotlin + Spring 코드 변경을 클래스 단위로 실시간 시각화",
   "type": "module",

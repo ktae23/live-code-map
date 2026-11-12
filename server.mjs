@@ -116,6 +116,8 @@ function onFiles(p, rels, only = null, agent = null) {
 }
 
 // ---- 훅 이벤트 ----
+const TASK_NOTIFICATION = /^\s*<task-notification>/;
+
 function onHook(h) {
   lastActivity = Date.now();
   const id = h.session_id;
@@ -144,6 +146,11 @@ function onHook(h) {
       s.closed = false;
       break;
     case 'UserPromptSubmit':
+      // 백그라운드 작업이 끝났다는 알림도 프롬프트로 들어온다. 사람이 보낸 요청이 아니므로 기준을 다시 잡지 않고 이어서 그린다.
+      if (TASK_NOTIFICATION.test(String(h.prompt ?? ''))) {
+        s.busy = true;
+        break;
+      }
       s.startTurn(String(h.prompt ?? '').slice(0, 400));
       break;
     case 'PreToolUse':
